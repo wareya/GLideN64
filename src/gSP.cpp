@@ -425,24 +425,38 @@ static void gSPLightVertex_default(SPVertex & _vtx)
 static void gSPPointLightVertex_default(SPVertex & _vtx, float * _vPos)
 {
 	assert(_vPos != NULL);
-	float light_intensity = 0.0f;
+	f32 light_intensity = 0.0f;
 	_vtx.HWLight = 0;
 	_vtx.r = gSP.lights[gSP.numLights].r;
 	_vtx.g = gSP.lights[gSP.numLights].g;
 	_vtx.b = gSP.lights[gSP.numLights].b;
 	for (u32 l=0; l < gSP.numLights; ++l) {
-		float lvec[3] = {gSP.lights[l].posx, gSP.lights[l].posy, gSP.lights[l].posz};
+		if (gSP.lights[l].posw == 0.0f) {
+			light_intensity = DotProduct(&_vtx.nx, &gSP.lights[l].x);
+			if (light_intensity < 0.0f)
+				light_intensity = 0.0f;
+			_vtx.r += gSP.lights[l].r * light_intensity;
+			_vtx.g += gSP.lights[l].g * light_intensity;
+			_vtx.b += gSP.lights[l].b * light_intensity;
+			continue;
+		}
+		f32 lvec[3] = { gSP.lights[l].posx, gSP.lights[l].posy, gSP.lights[l].posz };
 		lvec[0] -= _vPos[0];
 		lvec[1] -= _vPos[1];
 		lvec[2] -= _vPos[2];
-		const float light_len2 = lvec[0]*lvec[0] + lvec[1]*lvec[1] + lvec[2]*lvec[2];
-		const float light_len = sqrtf(light_len2);
-		const float at = gSP.lights[l].ca + light_len/65535.0f*gSP.lights[l].la + light_len2/65535.0f*gSP.lights[l].qa;
-		if (at > 0.0f)
-			light_intensity = 1/at;//DotProduct (lvec, nvec) / (light_len * normal_len * at);
-		else
-			light_intensity = 0.0f;
+		const f32 light_len2 = lvec[0]*lvec[0] + lvec[1]*lvec[1] + lvec[2]*lvec[2];
+		const f32 light_len = sqrtf(light_len2);
+		lvec[0] /= light_len;
+		lvec[1] /= light_len;
+		lvec[2] /= light_len;
+
+		light_intensity = DotProduct(&_vtx.nx, lvec);
+
 		if (light_intensity > 0.0f) {
+			f32 f = light_len / 300; // FIX ME. d2/gRSPlights[l].range*50 ?
+			f = 1.0f - min(f, 1.0f);
+			light_intensity *= f*f;
+
 			_vtx.r += gSP.lights[l].r * light_intensity;
 			_vtx.g += gSP.lights[l].g * light_intensity;
 			_vtx.b += gSP.lights[l].b * light_intensity;
@@ -814,9 +828,7 @@ void gSPLight( u32 l, s32 n )
 		gSP.lights[n].posx = (float)(((short*)RDRAM)[(addrShort+4)^1]);
 		gSP.lights[n].posy = (float)(((short*)RDRAM)[(addrShort+5)^1]);
 		gSP.lights[n].posz = (float)(((short*)RDRAM)[(addrShort+6)^1]);
-		gSP.lights[n].ca = (float)(RDRAM[(addrByte + 3) ^ 3]) / 16.0f;
-		gSP.lights[n].la = (float)(RDRAM[(addrByte + 7) ^ 3]);
-		gSP.lights[n].qa = (float)(RDRAM[(addrByte + 14) ^ 3]) / 8.0f;
+		gSP.lights[n].posw = (float)(((short*)RDRAM)[(addrShort+7)^1]);
 	}
 
 	if (config.generalEmulation.enableHWLighting != 0)
