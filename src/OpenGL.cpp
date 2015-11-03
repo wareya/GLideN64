@@ -767,8 +767,10 @@ void OGLRender::drawLLETriangle(u32 _numVtx)
 	const float scaleX = pCurrentBuffer != NULL ? 1.0f / pCurrentBuffer->m_width : VI.rwidth;
 	const float scaleY = pCurrentBuffer != NULL ? 1.0f / pCurrentBuffer->m_height : VI.rheight;
 
+	debugPrint("drawLLETriangle\n");
 	for (u32 i = 0; i < _numVtx; ++i) {
 		SPVertex & vtx = triangles.vertices[i];
+		debugPrint("vtx[%d] r=%d, g=%d, b=%d\n", i, (int)(vtx.r*255.0f), (int)(vtx.g*255.0f), (int)(vtx.b*255.0f));
 		vtx.HWLight = 0;
 		vtx.x = vtx.x * (2.0f * scaleX) - 1.0f;
 		vtx.x *= vtx.w;
@@ -803,8 +805,16 @@ void OGLRender::drawTriangles()
 		return;
 	}
 
+	if (gDP.textureImage.address == 0x6e7ef0)
+		return;
+
 	_prepareDrawTriangle(false);
+	if (wireframe)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glDrawElements(GL_TRIANGLES, triangles.num, GL_UNSIGNED_BYTE, triangles.elements);
+	if (wireframe)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	wireframe = false;
 	triangles.num = 0;
 }
 

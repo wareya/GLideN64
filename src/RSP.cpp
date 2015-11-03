@@ -12,6 +12,7 @@
 #include "GBI.h"
 #include "PluginAPI.h"
 #include "Config.h"
+#include "Log.h"
 
 using namespace std;
 
@@ -213,7 +214,6 @@ void RSP_ProcessDList()
 		FrameBuffer_CopyToRDRAM(gDP.colorImage.address);
 	if (config.frameBufferEmulation.copyDepthToRDRAM != Config::ctDisable)
 		FrameBuffer_CopyDepthBuffer(gDP.colorImage.address);
-
 	RSP.busy = FALSE;
 	gDP.changed |= CHANGED_COLORBUFFER;
 }

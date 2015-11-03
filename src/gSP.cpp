@@ -422,14 +422,24 @@ static void gSPLightVertex_default(SPVertex & _vtx)
 	}
 }
 
+bool wireframe = false;
+
 static void gSPPointLightVertex_default(SPVertex & _vtx, float * _vPos)
 {
+	static u32 minNumLight = 10;
 	assert(_vPos != NULL);
 	f32 light_intensity = 0.0f;
 	_vtx.HWLight = 0;
 	_vtx.r = gSP.lights[gSP.numLights].r;
 	_vtx.g = gSP.lights[gSP.numLights].g;
 	_vtx.b = gSP.lights[gSP.numLights].b;
+
+	if (gSP.numLights < minNumLight)
+		minNumLight = gSP.numLights;
+	if (gSP.numLights == 2)
+		int i = 0;
+	wireframe = false;
+	debugPrint("PointLight n=%d  min = %d\n", gSP.numLights, minNumLight);
 	for (u32 l=0; l < gSP.numLights; ++l) {
 		if (gSP.lights[l].posw == 0.0f) {
 			light_intensity = DotProduct(&_vtx.nx, &gSP.lights[l].x);
@@ -438,6 +448,7 @@ static void gSPPointLightVertex_default(SPVertex & _vtx, float * _vPos)
 			_vtx.r += gSP.lights[l].r * light_intensity;
 			_vtx.g += gSP.lights[l].g * light_intensity;
 			_vtx.b += gSP.lights[l].b * light_intensity;
+			wireframe = true;
 			continue;
 		}
 		f32 lvec[3] = { gSP.lights[l].posx, gSP.lights[l].posy, gSP.lights[l].posz };

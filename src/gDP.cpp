@@ -17,6 +17,7 @@
 #include "VI.h"
 #include "Config.h"
 #include "Combiner.h"
+#include "Log.h"
 
 using namespace std;
 
@@ -882,6 +883,7 @@ void gDPTextureRectangleFlip( f32 ulx, f32 uly, f32 lrx, f32 lry, s32 tile, f32 
 
 void gDPFullSync()
 {
+	debugPrint("gDPFullSync\n");
 	if (RSP.bLLE) {
 		if (config.frameBufferEmulation.copyToRDRAM != Config::ctDisable)
 			FrameBuffer_CopyToRDRAM(gDP.colorImage.address);

@@ -125,6 +125,8 @@ struct gSPInfo
 
 extern gSPInfo gSP;
 
+extern bool wireframe;
+
 void gSPLoadUcodeEx( u32 uc_start, u32 uc_dstart, u16 uc_dsize );
 void gSPNoOp();
 void gSPMatrix( u32 matrix, u8 param );
