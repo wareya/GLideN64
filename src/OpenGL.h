@@ -198,7 +198,7 @@ private:
 		TexrectDrawer();
 		void init();
 		void destroy();
-		bool add();
+		void add();
 		bool draw();
 	private:
 		u32 m_numRects;
