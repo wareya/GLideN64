@@ -17,6 +17,7 @@
 #include "VI.h"
 #include "Config.h"
 #include "Combiner.h"
+#include "DepthBufferRender.h"
 
 using namespace std;
 
@@ -890,12 +891,12 @@ void gDPFullSync()
 	const bool sync = config.frameBufferEmulation.copyToRDRAM == Config::ctSync;
 	if (config.frameBufferEmulation.copyToRDRAM != Config::ctDisable)
 		FrameBuffer_CopyToRDRAM(gDP.colorImage.address, sync);
-
+	/*
 	if (RSP.bLLE) {
 		if (config.frameBufferEmulation.copyDepthToRDRAM != Config::ctDisable)
 			FrameBuffer_CopyDepthBuffer(gDP.colorImage.address);
 	}
-
+	*/
 	*REG.MI_INTR |= MI_INTR_DP;
 
 	CheckInterrupts();
@@ -1230,7 +1231,33 @@ void gDPLLETriangle(u32 _w1, u32 _w2, int _shade, int _texture, int _zbuffer, u3
 	if (_zbuffer != 0)
 		gSP.geometryMode |= G_ZBUFFER;
 
-	render.drawLLETriangle(vtx - vtx0);
+	u32 numVtx = vtx - vtx0;
+	if (numVtx >= 3 && config.frameBufferEmulation.copyDepthToRDRAM != 0 && gDP.otherMode.depthUpdate != 0) {
+		vertexi v[12];
+
+		if ((gSP.geometryMode & G_CULL_BACK) == 0) {
+			SPVertex * spVtx = vtx0;
+			for (u32 i = 0; i < numVtx; ++i) {
+				v[i].x = (int)(spVtx[i].x * 65536.0);
+				v[i].y = (int)(spVtx[i].y * 65536.0);
+				v[i].z = (int)(spVtx[i].z * 65536.0 * 65536.0);
+			}
+		} else {
+			SPVertex * spVtx = vtx - 1;
+			for (u32 i = 0; i < numVtx; ++i) {
+				v[i].x = (int)(spVtx[numVtx - i - 1].x * 65536.0);
+				v[i].y = (int)(spVtx[numVtx - i - 1].y * 65536.0);
+				v[i].z = (int)(spVtx[numVtx - i - 1].z * 65536.0 * 65536.0);
+			}
+		}
+		if (numVtx > 3 && v[numVtx - 1].x == v[numVtx - 2].x && v[numVtx - 1].y == v[numVtx - 2].y)
+			--numVtx;
+
+		for (u32 i = 0; i <= numVtx-3; ++i)
+			Rasterize(v+i, 3, dzdx);
+	}
+
+	render.drawLLETriangle(numVtx);
 	gSP.textureTile[0] = textureTileOrg[0];
 	gSP.textureTile[1] = textureTileOrg[1];
 }
