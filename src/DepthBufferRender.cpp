@@ -165,20 +165,23 @@ void Rasterize(vertexi * vtx, int vertices, int dzdx)
 	// Search for the first usable right section
 
 	do {
-		if (right_vtx == max_vtx) return;
+		if (right_vtx == max_vtx) 
+			return;
 		RightSection();
 	} while (right_height <= 0);
 
 	// Search for the first usable left section
 
 	do {
-		if (left_vtx == max_vtx) return;
+		if (left_vtx == max_vtx) 
+			return;
 		LeftSection();
 	} while (left_height <= 0);
 
 	u16 * destptr = (u16*)(RDRAM + gDP.depthImageAddress);
 	int y1 = iceil(min_y);
-	if (y1 >= (int)gDP.scissor.lry) return;
+//	if (y1 >= (int)gDP.scissor.lry) 
+//		return;
 	int shift;
 
 	const u16 * const zLUT = depthBufferList().getZLUT();
@@ -218,13 +221,15 @@ void Rasterize(vertexi * vtx, int vertices, int dzdx)
 
 		//destptr += rdp.zi_width;
 		y1++;
-		if (y1 >= (int)gDP.scissor.lry) return;
+		if (y1 >= (int)gDP.scissor.lry) 
+			return;
 
 		// Scan the right side
 
 		if (--right_height <= 0) {               // End of this section?
 			do {
-				if (right_vtx == max_vtx) return;
+				if (right_vtx == max_vtx) 
+					return;
 				RightSection();
 			} while (right_height <= 0);
 		} else
@@ -234,7 +239,8 @@ void Rasterize(vertexi * vtx, int vertices, int dzdx)
 
 		if (--left_height <= 0) {                // End of this section?
 			do {
-				if (left_vtx == max_vtx) return;
+				if (left_vtx == max_vtx) 
+					return;
 				LeftSection();
 			} while (left_height <= 0);
 		} else {

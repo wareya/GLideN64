@@ -1234,6 +1234,7 @@ void gDPLLETriangle(u32 _w1, u32 _w2, int _shade, int _texture, int _zbuffer, u3
 	u32 numVtx = vtx - vtx0;
 	if (numVtx >= 3 && config.frameBufferEmulation.copyDepthToRDRAM != 0 && gDP.otherMode.depthUpdate != 0) {
 		vertexi v[12];
+		SPVertex* vo[12];
 
 		if ((gSP.geometryMode & G_CULL_BACK) == 0) {
 			SPVertex * spVtx = vtx0;
@@ -1241,6 +1242,7 @@ void gDPLLETriangle(u32 _w1, u32 _w2, int _shade, int _texture, int _zbuffer, u3
 				v[i].x = (int)(spVtx[i].x * 65536.0);
 				v[i].y = (int)(spVtx[i].y * 65536.0);
 				v[i].z = (int)(spVtx[i].z * 65536.0 * 65536.0);
+				vo[i] = &spVtx[i];
 			}
 		} else {
 			SPVertex * spVtx = vtx - 1;
@@ -1248,13 +1250,39 @@ void gDPLLETriangle(u32 _w1, u32 _w2, int _shade, int _texture, int _zbuffer, u3
 				v[i].x = (int)(spVtx[numVtx - i - 1].x * 65536.0);
 				v[i].y = (int)(spVtx[numVtx - i - 1].y * 65536.0);
 				v[i].z = (int)(spVtx[numVtx - i - 1].z * 65536.0 * 65536.0);
+				vo[i] = &spVtx[i];
 			}
 		}
 		if (numVtx > 3 && v[numVtx - 1].x == v[numVtx - 2].x && v[numVtx - 1].y == v[numVtx - 2].y)
 			--numVtx;
 
-		for (u32 i = 0; i <= numVtx-3; ++i)
-			Rasterize(v+i, 3, dzdx);
+		for (u32 i = 0; i <= numVtx - 3; ++i) {
+			dzdx = 0;
+			{
+				double X0 = vo[i + 0]->x;
+				double Y0 = vo[i + 0]->y;
+				double X1 = vo[i + 1]->x;
+				double Y1 = vo[i + 1]->y;
+				double X2 = vo[i + 2]->x;
+				double Y2 = vo[i + 2]->y;
+				double diffy_02 = Y0 - Y2;
+				double diffy_12 = Y1 - Y2;
+				double diffx_02 = X0 - X2;
+				double diffx_12 = X1 - X2;
+
+				double denom = (diffx_02 * diffy_12 - diffx_12 * diffy_02);
+				if (denom*denom > 0.0)
+				{
+					double diffz_02 = vo[i + 0]->z - vo[i + 2]->z;
+					double diffz_12 = vo[i + 1]->z - vo[i + 2]->z;
+					double fdzdx = (diffz_02 * diffy_12 - diffz_12 * diffy_02) / denom;
+					double fdzdy = (diffz_02 * diffx_12 - diffz_12 * diffx_02) / denom;
+					dzdx = (int)(fdzdx * 65536.0);
+				}
+			}
+
+			Rasterize(v + i, 3, dzdx);
+		}
 	}
 
 	render.drawLLETriangle(numVtx);
