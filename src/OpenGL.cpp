@@ -112,6 +112,15 @@ bool isGLError()
 
 bool OGLVideo::isExtensionSupported(const char *extension)
 {
+	GLint count = 0;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &count);
+	for (u32 i=0; i < count; ++i) {
+		const char* name = (const char*)glGetStringi(GL_EXTENSIONS, i);
+		if (strcmp(extension, name) == 0 )
+			return true;
+	}
+	return false;
+	/*
 	GLubyte *where = (GLubyte *)strchr(extension, ' ');
 	if (where || *extension == '\0')
 		return false;
@@ -132,7 +141,7 @@ bool OGLVideo::isExtensionSupported(const char *extension)
 		start = terminator;
 	}
 
-	return false;
+	return false;*/
 }
 
 bool OGLVideo::start()
@@ -906,7 +915,9 @@ void OGLRender::drawRect(int _ulx, int _uly, int _lrx, int _lry, float *_pColor)
 	}
 
 	if (updateArrays)
+	{
 		glVertexAttribPointer(SC_POSITION, 4, GL_FLOAT, GL_FALSE, sizeof(GLVertex), &m_rect[0].x);
+	}
 	currentCombiner()->updateRenderState();
 
 	FrameBuffer * pCurrentBuffer = frameBufferList().getCurrent();
@@ -1443,6 +1454,9 @@ void OGLRender::_initExtensions()
 	LOG(LOG_VERBOSE, "OpenGL minor version: %d\n", minorVersion);
 #ifndef GLESX
 	m_bImageTexture = (majorVersion >= 4) && (minorVersion >= 3) && (glBindImageTexture != NULL);
+	if ( OGLVideo::isExtensionSupported("GL_ARB_shading_language_420pack")
+	  && OGLVideo::isExtensionSupported("GL_ARB_shader_image_load_store"))
+		m_bImageTexture = puts("supported"), true;
 #elif defined(GLES3_1)
 	m_bImageTexture = (majorVersion >= 3) && (minorVersion >= 1) && (glBindImageTexture != NULL);
 #else
@@ -1463,10 +1477,19 @@ void OGLRender::_initExtensions()
 	LOG(LOG_VERBOSE, "Max Anisotropy: %f\n", config.texture.maxAnisotropyF);
 }
 
+GLuint vao;
+
 void OGLRender::_initStates()
 {
 	glDisable(GL_CULL_FACE);
+	/*
 	glEnableVertexAttribArray(SC_POSITION);
+	glEnableVertexAttribArray(SC_COLOR);
+	glEnableVertexAttribArray(SC_TEXCOORD0);
+	glEnableVertexAttribArray(SC_TEXCOORD1);
+	glEnableVertexAttribArray(SC_NUMLIGHTS);
+	glEnableVertexAttribArray(SC_MODIFY);
+	*/
 	glEnable( GL_DEPTH_TEST );
 	glDepthFunc( GL_ALWAYS );
 	glDepthMask( GL_FALSE );
@@ -1500,6 +1523,10 @@ void OGLRender::_initStates()
 void OGLRender::_initData()
 {
 	glState.reset();
+	
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	
 	_initExtensions();
 	_initStates();
 	_setSpecialTexrect();
@@ -1525,6 +1552,8 @@ void OGLRender::_initData()
 
 void OGLRender::_destroyData()
 {
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &vao);
 	m_renderState = rsNone;
 	if (config.bloomFilter.enable != 0)
 		PostProcessor::get().destroy();

@@ -19,12 +19,22 @@ EXPORT m64p_error CALL PluginGetVersion(
 	return api().PluginGetVersion(_PluginType, _PluginVersion, _APIVersion, _PluginNamePtr, _Capabilities);
 }
 
+} // extern "C"
+
+// have to be outside extern "C" linkage
+void(*MupenDebugCallback)(void *, int, const char *) = NULL;
+void * MupenContext = NULL;
+
+extern "C" {
+
 EXPORT m64p_error CALL PluginStartup(
 	m64p_dynlib_handle CoreLibHandle,
 	void *Context,
 	void (*DebugCallback)(void *, int, const char *)
 )
 {
+	MupenContext = Context;
+	MupenDebugCallback = DebugCallback;
 	return api().PluginStartup(CoreLibHandle);
 }
 

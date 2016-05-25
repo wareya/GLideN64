@@ -21,6 +21,29 @@
     }
 
 #else // ANDROID
+#ifdef MUPENPLUSAPI
+#include "PluginAPI.h"
+#include <stdio.h>
+#include <stdarg.h>
+static int LOG_TO_M64P[] = {
+  M64MSG_ERROR,		// LOG_NONE 	// dumpfile-based LOG would always log LOG_NONE messages
+  M64MSG_ERROR,		// LOG_ERROR
+  M64MSG_WARNING,	// LOG_MINIMAL
+  M64MSG_WARNING,	// LOG_WARNING
+  M64MSG_VERBOSE,	// LOG_VERBOSE
+  M64MSG_VERBOSE+1	// LOG_APIFUNC
+};
+inline void LOG( u16 type, const char * format, ... ) {
+	// frontend handles log level selection itself
+	if(!MupenDebugCallback || !MupenContext) return;
+	char buffer[2048];
+	va_list va;
+	va_start( va, format );
+	snprintf( buffer, 2048, format, va );
+	va_end( va );
+	MupenDebugCallback( MupenContext, LOG_TO_M64P[type], buffer );
+}
+#else // MUPENPLUSAPI
 #include <stdio.h>
 #include <stdarg.h>
 inline void LOG( u16 type, const char * format, ... ) {
@@ -35,6 +58,7 @@ inline void LOG( u16 type, const char * format, ... ) {
 	fclose( dumpFile );
 	va_end( va );
 }
+#endif // MUPENPLUSAPI
 #endif // ANDROID
 #else
 

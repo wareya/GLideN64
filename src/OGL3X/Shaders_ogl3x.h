@@ -572,7 +572,9 @@ static const char* depth_compare_shader_float =
 
 static const char* shadow_map_fragment_shader_float =
 #ifndef GLESX
-"#version 420 core											\n"
+"#version 330 core											\n"
+"#extension GL_ARB_shading_language_420pack : require		\n"
+"#extension GL_ARB_shader_image_load_store : require		\n"
 "layout(binding = 0, r16ui) uniform readonly uimage2D uZlutImage;\n"
 "layout(binding = 1, r16ui) uniform readonly uimage2D uTlutImage;\n"
 #else

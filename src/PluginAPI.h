@@ -6,6 +6,9 @@
 
 #ifdef MUPENPLUSAPI
 #include "m64p_plugin.h"
+// don't know where to put this
+extern void(*MupenDebugCallback)(void *, int, const char *);
+extern void * MupenContext;
 #else
 #include "ZilmarGFX_1_3.h"
 #include "FrameBufferInfoAPI.h"
