@@ -61,6 +61,8 @@ void OGLVideoMupenPlus::_setAttributes()
 	// Forcibly ask for the required OpenGL version (we'll abort startup later if we can't open a context)
 	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MAJOR_VERSION, 3);
 	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MINOR_VERSION, 3);
+	// Could theoretically be needed (default context profile is implementation-defined)
+    CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_PROFILE_MASK, M64P_GL_CONTEXT_PROFILE_CORE);
 #endif
 	CoreVideo_GL_SetAttribute(M64P_GL_DOUBLEBUFFER, 1);
 	CoreVideo_GL_SetAttribute(M64P_GL_SWAP_CONTROL, config.video.verticalSync);
