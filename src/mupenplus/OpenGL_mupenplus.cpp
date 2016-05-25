@@ -58,7 +58,9 @@ void OGLVideoMupenPlus::_setAttributes()
 	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MAJOR_VERSION, 3);
 	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MINOR_VERSION, 2);
 #else
-	// Do nothing
+	// Forcibly ask for the required OpenGL version (we'll abort startup later if we can't open a context)
+	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MAJOR_VERSION, 3);
+	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MINOR_VERSION, 3);
 #endif
 	CoreVideo_GL_SetAttribute(M64P_GL_DOUBLEBUFFER, 1);
 	CoreVideo_GL_SetAttribute(M64P_GL_SWAP_CONTROL, config.video.verticalSync);

@@ -173,7 +173,7 @@ void PluginAPI::RomClosed()
 #endif
 }
 
-void PluginAPI::RomOpen()
+bool PluginAPI::RomOpen()
 {
 	LOG(LOG_APIFUNC, "RomOpen\n");
 #ifdef RSPTHREAD
@@ -186,7 +186,7 @@ void PluginAPI::RomOpen()
 	RSP_Init();
 	GBI.init();
 	Config_LoadConfig();
-	video().start();
+	return video().start();
 #endif
 
 #ifdef DEBUG

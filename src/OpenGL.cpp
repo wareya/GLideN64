@@ -135,12 +135,17 @@ bool OGLVideo::isExtensionSupported(const char *extension)
 	return false;
 }
 
-void OGLVideo::start()
+bool OGLVideo::start()
 {
-	_start(); // TODO: process initialization error
-	initGLFunctions();
-	m_render._initData();
-	m_buffersSwapCount = 0;
+	// handle initial context creation error if possible
+	if(_start())
+	{
+		initGLFunctions();
+		m_render._initData();
+		m_buffersSwapCount = 0;
+		return true;
+	}
+	return false;
 }
 
 void OGLVideo::stop()
