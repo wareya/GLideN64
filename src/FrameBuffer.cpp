@@ -1431,16 +1431,16 @@ GLubyte* FrameBufferToRDRAM::getPixels(GLint _x0, GLint _y0, GLsizei _width, GLs
 	}
 	else {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, m_PBO[2]);
-		glReadPixels(_x0, _y0, _width, _height, _colorFormat, _colorType, 0);
+		glReadPixels(_x0, _y0, _width, _height, colorFormat, colorType, 0);
 	}
 
 	GLubyte* pixelData = (GLubyte*)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, _width * _height * colorFormatBytes, GL_MAP_READ_BIT);
 	if (pixelData == NULL)
-		return;
+		return NULL;
 #else
 	GLubyte* pixelData = (GLubyte*)malloc(_width * _height * colorFormatBytes);
 	if (pixelData == NULL)
-		return;
+		return NULL;
 	glReadPixels(_x0, _y0, _width, _height, colorFormat, colorType, pixelData);
 #endif // GLES2
 
