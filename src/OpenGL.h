@@ -165,11 +165,12 @@ private:
 	void _updateScreenCoordsViewport() const;
 	void _updateDepthUpdate() const;
 	void _updateStates(RENDER_STATE _renderState) const;
-	void _prepareDrawTriangle(bool _dma);
+	void _prepareDrawTriangle(u32 _numDmaVerts);
 	bool _canDraw() const;
 
 	struct {
-		SPVertex vertices[VERTBUFF_SIZE];
+//		SPVertex vertices[VERTBUFF_SIZE];
+		SPVertex * vertices; // VERTBUFF_SIZE
 		std::vector<SPVertex> dmaVertices;
 		GLubyte elements[ELEMBUFF_SIZE];
 		int num;
@@ -184,14 +185,18 @@ private:
 		float x, y, z, w;
 		float s0, t0, s1, t1;
 	};
-
+	
 	RENDER_STATE m_renderState;
 	OGL_RENDERER m_oglRenderer;
 	TexturedRectParams m_texrectParams;
-	GLVertex m_rect[4];
+//	GLVertex m_rect[4];
+	GLVertex * m_rect; // 4
 	u32 m_modifyVertices;
 	bool m_bImageTexture;
 	bool m_bFlatColors;
+	
+	GLuint vao[1];
+	GLuint vbo[2];
 };
 
 class OGLVideo

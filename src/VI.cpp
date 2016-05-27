@@ -3,6 +3,7 @@
 #include "Types.h"
 #include "VI.h"
 #include "OpenGL.h"
+#include <GL/glu.h> // gluErrorString
 #include "N64.h"
 #include "gSP.h"
 #include "gDP.h"
@@ -12,6 +13,8 @@
 #include "FrameBufferInfo.h"
 #include "Config.h"
 #include "Debug.h"
+#include "Log.h"
+#include <assert.h>
 
 using namespace std;
 
@@ -87,6 +90,14 @@ void VI_UpdateSize()
 
 void VI_UpdateScreen()
 {
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "VI_UpdateScreen() started out in error state: %s", gluErrorString(error));
+			assert(("VI_UpdateScreen() started out in error state", false));
+		}
+	}
 	if (VI.lastOrigin == -1) // Workaround for Mupen64Plus issue with initialization
 		isGLError();
 

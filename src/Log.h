@@ -22,16 +22,17 @@
 
 #else // ANDROID
 #ifdef MUPENPLUSAPI
-#include "PluginAPI.h"
 #include <stdio.h>
+#include <string.h>
 #include <stdarg.h>
-static int LOG_TO_M64P[] = {
+#include "PluginAPI.h"
+static int LOG_TO_M64MSG[] = {
   M64MSG_ERROR,		// LOG_NONE 	// dumpfile-based LOG would always log LOG_NONE messages
   M64MSG_ERROR,		// LOG_ERROR
   M64MSG_WARNING,	// LOG_MINIMAL
   M64MSG_WARNING,	// LOG_WARNING
-  M64MSG_VERBOSE,	// LOG_VERBOSE
-  M64MSG_VERBOSE+1	// LOG_APIFUNC
+  M64MSG_STATUS,	// LOG_VERBOSE
+  M64MSG_VERBOSE	// LOG_APIFUNC
 };
 inline void LOG( u16 type, const char * format, ... ) {
 	// frontend handles log level selection itself
@@ -39,9 +40,12 @@ inline void LOG( u16 type, const char * format, ... ) {
 	char buffer[2048];
 	va_list va;
 	va_start( va, format );
-	snprintf( buffer, 2048, format, va );
+	vsnprintf( buffer, 2048, format, va );
 	va_end( va );
-	MupenDebugCallback( MupenContext, LOG_TO_M64P[type], buffer );
+	// M64P api doesn't expect trailing newlines
+	int len = strlen(buffer);
+	if(buffer[len-1] == '\n') buffer[len-1] = '\0';
+	MupenDebugCallback( MupenContext, LOG_TO_M64MSG[type], buffer );
 }
 #else // MUPENPLUSAPI
 #include <stdio.h>

@@ -14,6 +14,10 @@
 #include "PluginAPI.h"
 #include "Config.h"
 
+#include "Log.h"
+#include <GL/glu.h> // gluErrorString
+#include <assert.h>
+
 using namespace std;
 
 RSPInfo		RSP;
@@ -138,6 +142,14 @@ void RSP_CheckDLCounter()
 
 void RSP_ProcessDList()
 {
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "RSP_ProcessDList() started out in error state: %s", gluErrorString(error));
+			assert(("RSP_ProcessDList() started out in error state", false));
+		}
+	}
 	if (ConfigOpen || video().isResizeWindow()) {
 		*REG.MI_INTR |= MI_INTR_DP;
 		CheckInterrupts();
@@ -227,6 +239,14 @@ void RSP_ProcessDList()
 
 	RSP.busy = FALSE;
 	gDP.changed |= CHANGED_COLORBUFFER;
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "RSP_ProcessDList() ended out in error state: %s", gluErrorString(error));
+			assert(("RSP_ProcessDList() ended out in error state", false));
+		}
+	}
 }
 
 static

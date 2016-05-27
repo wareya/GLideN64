@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <vector>
 #include "OpenGL.h"
+#include <GL/glu.h> // gluErrorString
 #include "FrameBuffer.h"
 #include "DepthBuffer.h"
 #include "N64.h"
@@ -18,6 +19,7 @@
 #include "Debug.h"
 #include "PostProcessor.h"
 #include "FrameBufferInfo.h"
+#include "Log.h"
 
 using namespace std;
 
@@ -1765,7 +1767,7 @@ bool _copyPixelsFromRdram(u32 _address, const vector<u32> & _vecAddress, u32* _d
 			return false;
 		col = src[idx];
 		summ += col;
-		_dst[(w + (_height - h)*_width) ^ _xor] = converter(col, _bCFB);
+		_dst[(w + (_height - h - 1)*_width) ^ _xor] = converter(col, _bCFB);
 	}
 
 	return summ != 0;
@@ -1799,6 +1801,14 @@ u32 RGBA32ToABGR32(u32 col, bool _bCFB)
 
 void RDRAMtoFrameBuffer::CopyFromRDRAM(u32 _address, bool _bCFB)
 {
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM() started out in error state: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM() started out in error state", false));
+		}
+	}
 	Cleaner cleaner(this);
 
 	if (m_pCurBuffer == nullptr) {
@@ -1831,9 +1841,41 @@ void RDRAMtoFrameBuffer::CopyFromRDRAM(u32 _address, bool _bCFB)
 	m_pTexture->height = height;
 	const u32 dataSize = width*height * 4;
 #ifndef GLES2
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM buffer creation started out in error state: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM buffer creation started out in error state", false));
+		}
+	}
 	PBOBinder binder(GL_PIXEL_UNPACK_BUFFER, m_PBO);
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM binder creation failed: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM binder creation failed", false));
+		}
+	}
 	glBufferData(GL_PIXEL_UNPACK_BUFFER, dataSize, NULL, GL_DYNAMIC_DRAW);
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM buffer creation failed: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM buffer creation failed", false));
+		}
+	}
 	GLubyte* ptr = (GLubyte*)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, dataSize, GL_MAP_WRITE_BIT);
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM buffer mapping failed: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM buffer mapping failed", false));
+		}
+	}
 #else
 	GLubyte* ptr = (GLubyte*)malloc(dataSize);
 	PBOBinder binder(ptr);
@@ -1862,12 +1904,30 @@ void RDRAMtoFrameBuffer::CopyFromRDRAM(u32 _address, bool _bCFB)
 			totalBytes = RDRAMSize + 1 - address;
 		memset(RDRAM + address, 0, totalBytes);
 	}
+	
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM ran into error partway through: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM ran into error partway through", false));
+		}
+	}
 
 #ifndef GLES2
 	glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER); // release the mapped buffer
 #endif
 	if (!bCopy)
 		return;
+	
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM ran into error after unmapping: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM ran into error after unmapping", false));
+		}
+	}
 
 	glBindTexture(GL_TEXTURE_2D, m_pTexture->glName);
 #ifndef GLES2
@@ -1901,16 +1961,60 @@ void RDRAMtoFrameBuffer::CopyFromRDRAM(u32 _address, bool _bCFB)
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_SCISSOR_TEST);
 
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM errored before binding framebuffer: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM errored before binding framebuffer", false));
+		}
+	}
+	
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_pCurBuffer->m_FBO);
 	OGLRender::TexturedRectParams params((float)x0, (float)y0, (float)width, (float)height,
 										 0.0f, 0.0f, width - 1.0f, height - 1.0f, 1.0f, 1.0f,
 										 false, true, false, m_pCurBuffer);
+
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM errored after binding framebuffer: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM errored after binding framebuffer", false));
+		}
+	}
+	
 	video().getRender().drawTexturedRect(params);
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM errored after redrawing framebuffer: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM errored after redrawing framebuffer", false));
+		}
+	}
 	frameBufferList().setCurrentDrawBuffer();
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM errored after setting drawbuffer: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM errored after setting drawbuffer", false));
+		}
+	}
 
 	gSP.textureTile[0] = pTile0;
 
 	gDP.changed |= CHANGED_RENDERMODE | CHANGED_COMBINE | CHANGED_SCISSOR;
+	
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "CopyFromRDRAM errored before ending: %s", gluErrorString(error));
+			assert(("CopyFromRDRAM errored before ending", false));
+		}
+	}
 }
 
 void RDRAMtoFrameBuffer::Reset()
@@ -1921,6 +2025,14 @@ void RDRAMtoFrameBuffer::Reset()
 
 void FrameBuffer_CopyFromRDRAM(u32 _address, bool _bCFB)
 {
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "FrameBuffer_CopyFromRDRAM() started out in error state: %s", gluErrorString(error));
+			assert(("FrameBuffer_CopyFromRDRAM() started out in error state", false));
+		}
+	}
 	g_RDRAMtoFB.CopyFromRDRAM(_address, _bCFB);
 }
 
