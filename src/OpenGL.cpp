@@ -817,8 +817,12 @@ void OGLRender::_prepareDrawTriangle(int updatemode, u32 numUpdate)
 	{
 		// Indexed
 		if(updatemode == 2) {
-			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(GLubyte)*ELEMBUFF_SIZE, triangles.elements);
-			glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array, GL_DYNAMIC_DRAW);
+			// TODO: Super super slow on my radeon 5770 on mesa. What's going on?
+			//glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(GLubyte)*ELEMBUFF_SIZE, triangles.elements);
+			SPVertex temp[VERTBUFF_SIZE];
+			for(u32 i = 0; i < numUpdate; ++i)
+				temp[i] = soft_array[triangles.elements[i]];
+			glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*VERTBUFF_SIZE, temp, GL_DYNAMIC_DRAW);
 		}
 		// LLE
 		else if(updatemode == 1) {
@@ -832,12 +836,16 @@ void OGLRender::_prepareDrawTriangle(int updatemode, u32 numUpdate)
 	else
 	{
 		if(updatemode == 2) {
-			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(GLubyte)*ELEMBUFF_SIZE, triangles.elements);
-			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array);
+			//glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(GLubyte)*ELEMBUFF_SIZE, triangles.elements);
+			//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array);
+			SPVertex temp[VERTBUFF_SIZE];
+			for(u32 i = 0; i < numUpdate; ++i)
+				temp[i] = soft_array[triangles.elements[i]];
+			glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*numUpdate, temp, GL_DYNAMIC_DRAW);
 		}
 		// LLE
 		else if(updatemode == 1) {
-			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SPVertex)*numUpdate, soft_array);
 		}
 		// DMA
 		else if(updatemode == 0) {
@@ -894,7 +902,9 @@ void OGLRender::drawTriangles()
 
 	_prepareDrawTriangle(2, triangles.num);
 		
-	glDrawElements(GL_TRIANGLES, triangles.num, GL_UNSIGNED_BYTE, 0);
+	//glDrawElements(GL_TRIANGLES, triangles.num, GL_UNSIGNED_BYTE, 0);
+	//glDrawElements is slow as balls on my hardware so I run the element indexing in SW instead
+	glDrawArrays(GL_TRIANGLES, 0, triangles.num);
 	
 	triangles.num = 0;
 }
