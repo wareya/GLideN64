@@ -147,6 +147,7 @@ bool OGLVideo::isExtensionSupported(const char *extension)
 
 bool OGLVideo::start()
 {
+	
 	// handle initial context creation error if possible
 	if(_start())
 	{
@@ -754,30 +755,22 @@ void OGLRender::_setTexCoordArrays() const
 	}
 }
 
-void OGLRender::_prepareDrawTriangle(u32 _numDmaVtx)
+void OGLRender::_prepareDrawTriangle(int updatemode, u32 numUpdate)
 {
 #ifdef GL_IMAGE_TEXTURES_SUPPORT
 	if (m_bImageTexture && config.frameBufferEmulation.N64DepthCompare != 0)
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 #endif // GL_IMAGE_TEXTURES_SUPPORT
 
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "_prepareDrawTriangle() started out in error state: %s", gluErrorString(error));
-			assert(("_prepareDrawTriangle() started out in error state", false));
-		}
-	}
 	if ((m_modifyVertices & MODIFY_XY) != 0)
 		gSP.changed &= ~CHANGED_VIEWPORT;
 
 	if (gSP.changed || gDP.changed)
 		_updateStates(rsTriangle);
-
-	const bool updateArrays = m_renderState != rsTriangle;
+	const bool updateArrays = m_renderState != rsTriangle && m_renderState != rsTriangleDma;
+	const bool updateBuffers = m_renderState != (updatemode ? rsTriangle : rsTriangleDma);
+	m_renderState = updatemode ? rsTriangle : rsTriangleDma;
 	if (updateArrays || CombinerInfo::get().isChanged()) {
-		m_renderState = rsTriangle;
 		_setColorArray();
 		_setTexCoordArrays();
 	}
@@ -792,51 +785,64 @@ void OGLRender::_prepareDrawTriangle(u32 _numDmaVtx)
 	const bool updateColorArrays = m_bFlatColors != bFlatColors;
 	m_bFlatColors = bFlatColors;
 	
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]); // use SP VBO
-
-	if (updateArrays) {
-		//SPVertex * pVtx = _dma ? triangles.dmaVertices.data() : &triangles.vertices[0];
-		for(u32 i = 0; i < _numDmaVtx; i++)
-			triangles.vertices[i] = triangles.dmaVertices[i];
-		glVertexAttribPointer(SC_POSITION, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, x));//&pVtx->x);
-		if (m_bFlatColors)
-			glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, flat_r));//&pVtx->flat_r);
-		else
-			glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, r));//&pVtx->r);
-		glVertexAttribPointer(SC_TEXCOORD0, 2, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, s));//&pVtx->s);
-		if (config.generalEmulation.enableHWLighting) {
-			glEnableVertexAttribArray(SC_NUMLIGHTS);
-			glVertexAttribPointer(SC_NUMLIGHTS, 1, GL_BYTE, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, HWLight));//&pVtx->HWLight);
-		}
-		glEnableVertexAttribArray(SC_MODIFY);
-		glVertexAttribPointer(SC_MODIFY, 4, GL_BYTE, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, modify));//&pVtx->modify);
-	} else if (updateColorArrays) {
-		//SPVertex * pVtx = _dma ? triangles.dmaVertices.data() : &triangles.vertices[0];
-		for(u32 i = 0; i < _numDmaVtx; i++)
-			triangles.vertices[i] = triangles.dmaVertices[i];
-		if (m_bFlatColors)
-			glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, flat_r));//&pVtx->flat_r);
-		else
-			glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, r));//&pVtx->r);
-	}
+	if (updateArrays || updateColorArrays)
 	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
+		if(updateArrays)
 		{
-			LOG(LOG_ERROR, "_prepareDrawTriangle() errored after updating arrays: %s", gluErrorString(error));
-			assert(("_prepareDrawTriangle() errored after updating arrays", false));
+			glVertexAttribPointer(SC_POSITION, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, x));
+			if (m_bFlatColors)
+				glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, flat_r));
+			else
+				glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, r));
+			glVertexAttribPointer(SC_TEXCOORD0, 2, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, s));
+			if (config.generalEmulation.enableHWLighting) {
+				glEnableVertexAttribArray(SC_NUMLIGHTS);
+				glVertexAttribPointer(SC_NUMLIGHTS, 1, GL_BYTE, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, HWLight));
+			}
+			glEnableVertexAttribArray(SC_MODIFY);
+			glVertexAttribPointer(SC_MODIFY, 4, GL_BYTE, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, modify));
 		}
+		if (m_bFlatColors)
+			glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, flat_r));
+		else
+			glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, r));
 	}
 
 	if ((m_modifyVertices & MODIFY_XY) != 0)
 		_updateScreenCoordsViewport();
 	m_modifyVertices = 0;
+	
+	SPVertex * soft_array = updatemode ? triangles.vertices : triangles.dmaVertices.data();
+	if(updateBuffers)
 	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "_prepareDrawTriangle() errored before returning: %s", gluErrorString(error));
-			assert(("_prepareDrawTriangle() errored before returning", false));
+		// Indexed
+		if(updatemode == 2) {
+			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(GLubyte)*ELEMBUFF_SIZE, triangles.elements);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array, GL_DYNAMIC_DRAW);
+		}
+		// LLE
+		else if(updatemode == 1) {
+			glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array, GL_DYNAMIC_DRAW);
+		}
+		// DMA
+		else if(updatemode == 0) {
+			glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*triangles.dmaVertices.size(), soft_array, GL_STREAM_DRAW);
+		}
+	}
+	else
+	{
+		if(updatemode == 2) {
+			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(GLubyte)*ELEMBUFF_SIZE, triangles.elements);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array);
+		}
+		// LLE
+		else if(updatemode == 1) {
+			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(SPVertex)*VERTBUFF_SIZE, soft_array);
+		}
+		// DMA
+		else if(updatemode == 0) {
+			// DMA size is dynamic and so the HW buffer has to be reallocated. Alternative: Store a 12-bit-indexed (?) sized buffer just for DMA verts. FIXME: use alternative?
+			glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*triangles.dmaVertices.size(), soft_array, GL_STREAM_DRAW);
 		}
 	}
 }
@@ -850,7 +856,7 @@ void OGLRender::drawLLETriangle(u32 _numVtx)
 {
 	if (_numVtx == 0 || !_canDraw())
 		return;
-
+	
 	for (u32 i = 0; i < _numVtx; ++i) {
 		SPVertex & vtx = triangles.vertices[i];
 		vtx.modify = MODIFY_ALL;
@@ -858,7 +864,7 @@ void OGLRender::drawLLETriangle(u32 _numVtx)
 	m_modifyVertices = MODIFY_ALL;
 
 	gSP.changed &= ~CHANGED_GEOMETRYMODE; // Don't update cull mode
-	_prepareDrawTriangle(0);
+	_prepareDrawTriangle(1, _numVtx);
 	glDisable(GL_CULL_FACE);
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, _numVtx);
@@ -872,60 +878,41 @@ void OGLRender::drawDMATriangles(u32 _numVtx)
 {
 	if (_numVtx == 0 || !_canDraw())
 		return;
-	_prepareDrawTriangle(_numVtx);
+	
+	_prepareDrawTriangle(0, _numVtx);
+	
 	glDrawArrays(GL_TRIANGLES, 0, _numVtx);
 }
 
 void OGLRender::drawTriangles()
 {
+	if (triangles.num == 0 || !_canDraw())
 	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTriangles() started out in error state: %s", gluErrorString(error));
-			assert(("drawTriangles() started out in error state", false));
-		}
-	}
-	if (triangles.num == 0 || !_canDraw()) {
 		triangles.num = 0;
 		return;
 	}
 
-	_prepareDrawTriangle(0);
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTriangles() errored after _prepareDrawTriangle: %s", gluErrorString(error));
-			assert(("drawTriangles() errored after _prepareDrawTriangle", false));
-		}
-	}
-	glDrawElements(GL_TRIANGLES, triangles.num, GL_UNSIGNED_BYTE, triangles.elements);
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTriangles() errored after glDrawElements: %s", gluErrorString(error));
-			assert(("drawTriangles() errored after glDrawElements", false));
-		}
-	}
-//	glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+	_prepareDrawTriangle(2, triangles.num);
+		
+	glDrawElements(GL_TRIANGLES, triangles.num, GL_UNSIGNED_BYTE, 0);
+	
 	triangles.num = 0;
 }
 
 void OGLRender::drawLine(int _v0, int _v1, float _width)
 {
+	// FIXME: Needs to commit elements. Where are the vertices being elemented from? Also, does it need an EBO?
+	// NOTE: Uses triangle.vertices (aka SP)
+	return; 
 	if (!_canDraw())
 		return;
-
+	
 	if ((triangles.vertices[_v0].modify & MODIFY_XY) != 0)
 		gSP.changed &= ~CHANGED_VIEWPORT;
 	if (gSP.changed || gDP.changed)
 		_updateStates(rsLine);
 
 	FrameBuffer * pCurrentBuffer = frameBufferList().getCurrent();
-	
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]); // use SP VBO
 
 	if (m_renderState != rsLine || CombinerInfo::get().isChanged()) {
 		_setColorArray();
@@ -933,7 +920,7 @@ void OGLRender::drawLine(int _v0, int _v1, float _width)
 		glDisableVertexAttribArray(SC_TEXCOORD1);
 		
 		glVertexAttribPointer(SC_POSITION, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, x));
-		glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex),(const GLvoid *)offsetof(SPVertex, r));
+		glVertexAttribPointer(SC_COLOR, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, r));
 		glEnableVertexAttribArray(SC_MODIFY);
 		glVertexAttribPointer(SC_MODIFY, 1, GL_BYTE, GL_FALSE, sizeof(SPVertex), (const GLvoid *)offsetof(SPVertex, modify));
 
@@ -951,7 +938,13 @@ void OGLRender::drawLine(int _v0, int _v1, float _width)
 		glLineWidth(_width * video().getScaleX());
 	else
 		glLineWidth(_width * config.frameBufferEmulation.nativeResFactor);
-	glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, elem);
+		
+	// commit verts to GPU
+	// triangles.hw_vertices[0] = triangles.vertices[0];
+	// triangles.hw_vertices[1] = triangles.vertices[1];
+	
+	//glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, elem);
+	//glFinish();
 }
 
 void OGLRender::drawRect(int _ulx, int _uly, int _lrx, int _lry, float *_pColor)
@@ -972,12 +965,6 @@ void OGLRender::drawRect(int _ulx, int _uly, int _lrx, int _lry, float *_pColor)
 		glDisableVertexAttribArray(SC_MODIFY);
 	}
 	
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); // use rect VBO
-	
-	if (updateArrays)
-	{
-		glVertexAttribPointer(SC_POSITION, 4, GL_FLOAT, GL_FALSE, sizeof(GLVertex), (const GLvoid *)offsetof(GLVertex, x ));
-	}
 	currentCombiner()->updateRenderState();
 
 	FrameBuffer * pCurrentBuffer = frameBufferList().getCurrent();
@@ -993,35 +980,49 @@ void OGLRender::drawRect(int _ulx, int _uly, int _lrx, int _lry, float *_pColor)
 	const float scaleY = pCurrentBuffer != NULL ? 1.0f / pCurrentBuffer->m_height : VI.rheight;
 	const float Z = (gDP.otherMode.depthSource == G_ZS_PRIM) ? gDP.primDepth.z : gSP.viewport.nearz;
 	const float W = 1.0f;
-	m_rect[0].x = (float)_ulx * (2.0f * scaleX) - 1.0;
-	m_rect[0].y = (float)_uly * (-2.0f * scaleY) + 1.0;
-	m_rect[0].z = Z;
-	m_rect[0].w = W;
-	m_rect[1].x = (float)_lrx * (2.0f * scaleX) - 1.0;
-	m_rect[1].y = m_rect[0].y;
-	m_rect[1].z = Z;
-	m_rect[1].w = W;
-	m_rect[2].x = m_rect[0].x;
-	m_rect[2].y = (float)_lry * (-2.0f * scaleY) + 1.0;
-	m_rect[2].z = Z;
-	m_rect[2].w = W;
-	m_rect[3].x = m_rect[1].x;
-	m_rect[3].y = m_rect[2].y;
-	m_rect[3].z = Z;
-	m_rect[3].w = W;
+	
+	GLVertex scratch[4];
+	
+	scratch[0].x = (float)_ulx * (2.0f * scaleX) - 1.0;
+	scratch[0].y = (float)_uly * (-2.0f * scaleY) + 1.0;
+	scratch[0].z = Z;
+	scratch[0].w = W;
+	scratch[1].x = (float)_lrx * (2.0f * scaleX) - 1.0;
+	scratch[1].y = scratch[0].y;
+	scratch[1].z = Z;
+	scratch[1].w = W;
+	scratch[2].x = scratch[0].x;
+	scratch[2].y = (float)_lry * (-2.0f * scaleY) + 1.0;
+	scratch[2].z = Z;
+	scratch[2].w = W;
+	scratch[3].x = scratch[1].x;
+	scratch[3].y = scratch[2].y;
+	scratch[3].z = Z;
+	scratch[3].w = W;
 
 	if (ogl.isAdjustScreen() && (gDP.colorImage.width > VI.width * 98 / 100) && (_lrx - _ulx < VI.width * 9 / 10)) {
 		const float scale = ogl.getAdjustScale();
 		for (u32 i = 0; i < 4; ++i)
-			m_rect[i].x *= scale;
+			scratch[i].x *= scale;
 	}
 
 	if (gDP.otherMode.cycleType == G_CYC_FILL)
 		glVertexAttrib4fv(SC_COLOR, _pColor);
 	else
 		glVertexAttrib4f(SC_COLOR, 0.0f, 0.0f, 0.0f, 0.0f);
+	
+	if(updateArrays)
+	{
+		glVertexAttribPointer(SC_POSITION , 4, GL_FLOAT, GL_FALSE, sizeof(GLVertex), (const GLvoid *)offsetof(GLVertex, x ));
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex)*4, scratch, GL_DYNAMIC_DRAW);
+	}
+	else
+	{
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLVertex)*4, scratch);
+	}
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	
 	gSP.changed |= CHANGED_GEOMETRYMODE | CHANGED_VIEWPORT;
 }
 
@@ -1178,25 +1179,9 @@ bool(*texturedRectSpecial)(const OGLRender::TexturedRectParams & _params) = NULL
 
 void OGLRender::drawTexturedRect(const TexturedRectParams & _params)
 {
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect started out in an error state: %s", gluErrorString(error));
-			assert(("drawTexturedRect started out in an error state", false));
-		}
-	}
 	gSP.changed &= ~CHANGED_GEOMETRYMODE; // Don't update cull mode
 	if (_params.texrectCmd && (gSP.changed | gDP.changed) != 0)
 		_updateStates(rsTexRect);
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after updating gdp state: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after updating gdp state", false));
-		}
-	}
 
 	const bool updateArrays = m_renderState != rsTexRect;
 	if (updateArrays || CombinerInfo::get().isChanged()) {
@@ -1213,44 +1198,19 @@ void OGLRender::drawTexturedRect(const TexturedRectParams & _params)
 		}
 		glVertexAttrib4f(SC_COLOR, 0, 0, 0, alpha);
 	}
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after updating combiner state: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after updating combiner state", false));
-		}
-	}
-	
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); // use rect VBO
 	
 	if (updateArrays) {
 #ifdef RENDERSTATE_TEST
 		StateChanges++;
 #endif
+		// Going to assume I can't move this.
+		glDisableVertexAttribArray(SC_NUMLIGHTS);
+		glDisableVertexAttribArray(SC_MODIFY);
 		glVertexAttribPointer(SC_POSITION , 4, GL_FLOAT, GL_FALSE, sizeof(GLVertex), (const GLvoid *)offsetof(GLVertex, x ));
 		glVertexAttribPointer(SC_TEXCOORD0, 2, GL_FLOAT, GL_FALSE, sizeof(GLVertex), (const GLvoid *)offsetof(GLVertex, s0));
 		glVertexAttribPointer(SC_TEXCOORD1, 2, GL_FLOAT, GL_FALSE, sizeof(GLVertex), (const GLvoid *)offsetof(GLVertex, s1));
-		glDisableVertexAttribArray(SC_NUMLIGHTS);
-		glDisableVertexAttribArray(SC_MODIFY);
-		{
-			auto error = glGetError();
-			if(error != GL_NO_ERROR)
-			{
-				LOG(LOG_ERROR, "drawTexturedRect errored after updating arrays: %s", gluErrorString(error));
-				assert(("drawTexturedRect errored after updating arrays", false));
-			}
-		}
 	}
 	currentCombiner()->updateRenderState();
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after updating render state: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after updating render state", false));
-		}
-	}
 
 	if (_params.texrectCmd && texturedRectSpecial != NULL && texturedRectSpecial(_params)) {
 		gSP.changed |= CHANGED_GEOMETRYMODE;
@@ -1267,46 +1227,32 @@ void OGLRender::drawTexturedRect(const TexturedRectParams & _params)
 	else
 		glViewport(0, 0, pCurrentBuffer->m_width*pCurrentBuffer->m_scaleX, pCurrentBuffer->m_height*pCurrentBuffer->m_scaleY);
 	glDisable( GL_CULL_FACE );
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after configuring viewport: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after configuring viewport", false));
-		}
-	}
 
 	const float scaleX = pCurrentBuffer != NULL ? 1.0f / pCurrentBuffer->m_width : VI.rwidth;
 	const float scaleY = pCurrentBuffer != NULL ? 1.0f / pCurrentBuffer->m_height : VI.rheight;
 	const float Z = (gDP.otherMode.depthSource == G_ZS_PRIM) ? gDP.primDepth.z : gSP.viewport.nearz;
 	const float W = 1.0f;
-	// TODO : MapBuffer
-	m_rect[0].x = (float)_params.ulx * (2.0f * scaleX) - 1.0f;
-	m_rect[0].y = (float)_params.uly * (-2.0f * scaleY) + 1.0f;
-	m_rect[0].z = Z;
-	m_rect[0].w = W;
-	m_rect[1].x = (float)(_params.lrx) * (2.0f * scaleX) - 1.0f;
-	m_rect[1].y = m_rect[0].y;
-	m_rect[1].z = Z;
-	m_rect[1].w = W;
-	m_rect[2].x = m_rect[0].x;
-	m_rect[2].y = (float)(_params.lry) * (-2.0f * scaleY) + 1.0f;
-	m_rect[2].z = Z;
-	m_rect[2].w = W;
-	m_rect[3].x = m_rect[1].x;
-	m_rect[3].y = m_rect[2].y;
-	m_rect[3].z = Z;
-	m_rect[3].w = W;
+	
+	GLVertex scratch[4];
+	
+	scratch[0].x = (float)_params.ulx * (2.0f * scaleX) - 1.0f;
+	scratch[0].y = (float)_params.uly * (-2.0f * scaleY) + 1.0f;
+	scratch[0].z = Z;
+	scratch[0].w = W;
+	scratch[1].x = (float)(_params.lrx) * (2.0f * scaleX) - 1.0f;
+	scratch[1].y = scratch[0].y;
+	scratch[1].z = Z;
+	scratch[1].w = W;
+	scratch[2].x = scratch[0].x;
+	scratch[2].y = (float)(_params.lry) * (-2.0f * scaleY) + 1.0f;
+	scratch[2].z = Z;
+	scratch[2].w = W;
+	scratch[3].x = scratch[1].x;
+	scratch[3].y = scratch[2].y;
+	scratch[3].z = Z;
+	scratch[3].w = W;
 
 	TextureCache & cache = textureCache();
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after making texture cache: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after making texture cache", false));
-		}
-	}
 	struct
 	{
 		float s0, t0, s1, t1;
@@ -1360,59 +1306,43 @@ void OGLRender::drawTexturedRect(const TexturedRectParams & _params)
 			texST[t].t1 *= cache.current[t]->scaleT;
 		}
 	}
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after handling texture tiling: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after handling texture tiling", false));
-		}
-	}
 
 	if (gDP.otherMode.cycleType == G_CYC_COPY) {
 		glActiveTexture( GL_TEXTURE0 );
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 	}
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after configuring textures: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after configuring textures", false));
-		}
-	}
 
-	m_rect[0].s0 = texST[0].s0;
-	m_rect[0].t0 = texST[0].t0;
-	m_rect[0].s1 = texST[1].s0;
-	m_rect[0].t1 = texST[1].t0;
+	scratch[0].s0 = texST[0].s0;
+	scratch[0].t0 = texST[0].t0;
+	scratch[0].s1 = texST[1].s0;
+	scratch[0].t1 = texST[1].t0;
 
-	m_rect[3].s0 = texST[0].s1;
-	m_rect[3].t0 = texST[0].t1;
-	m_rect[3].s1 = texST[1].s1;
-	m_rect[3].t1 = texST[1].t1;
+	scratch[3].s0 = texST[0].s1;
+	scratch[3].t0 = texST[0].t1;
+	scratch[3].s1 = texST[1].s1;
+	scratch[3].t1 = texST[1].t1;
 
 	if (_params.flip) {
-		m_rect[1].s0 = texST[0].s0;
-		m_rect[1].t0 = texST[0].t1;
-		m_rect[1].s1 = texST[1].s0;
-		m_rect[1].t1 = texST[1].t1;
+		scratch[1].s0 = texST[0].s0;
+		scratch[1].t0 = texST[0].t1;
+		scratch[1].s1 = texST[1].s0;
+		scratch[1].t1 = texST[1].t1;
 
-		m_rect[2].s0 = texST[0].s1;
-		m_rect[2].t0 = texST[0].t0;
-		m_rect[2].s1 = texST[1].s1;
-		m_rect[2].t1 = texST[1].t0;
+		scratch[2].s0 = texST[0].s1;
+		scratch[2].t0 = texST[0].t0;
+		scratch[2].s1 = texST[1].s1;
+		scratch[2].t1 = texST[1].t0;
 	} else {
-		m_rect[1].s0 = texST[0].s1;
-		m_rect[1].t0 = texST[0].t0;
-		m_rect[1].s1 = texST[1].s1;
-		m_rect[1].t1 = texST[1].t0;
+		scratch[1].s0 = texST[0].s1;
+		scratch[1].t0 = texST[0].t0;
+		scratch[1].s1 = texST[1].s1;
+		scratch[1].t1 = texST[1].t0;
 
-		m_rect[2].s0 = texST[0].s0;
-		m_rect[2].t0 = texST[0].t1;
-		m_rect[2].s1 = texST[1].s0;
-		m_rect[2].t1 = texST[1].t1;
+		scratch[2].s0 = texST[0].s0;
+		scratch[2].t0 = texST[0].t1;
+		scratch[2].s1 = texST[1].s0;
+		scratch[2].t1 = texST[1].t1;
 	}
 
 	if (ogl.isAdjustScreen() &&
@@ -1421,28 +1351,20 @@ void OGLRender::drawTexturedRect(const TexturedRectParams & _params)
 	{
 		const float scale = ogl.getAdjustScale();
 		for (u32 i = 0; i < 4; ++i)
-			m_rect[i].x *= scale;
+			scratch[i].x *= scale;
 	}
-
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex), 4, GL_STATIC_DRAW);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	
+	if(updateArrays)
 	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after drawing triangles: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after drawing triangles", false));
-		}
+		glVertexAttribPointer(SC_POSITION , 4, GL_FLOAT, GL_FALSE, sizeof(GLVertex), (const GLvoid *)offsetof(GLVertex, x ));
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex)*4, scratch, GL_DYNAMIC_DRAW);
+	}
+	else
+	{
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLVertex)*4, scratch);
 	}
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
-			LOG(LOG_ERROR, "drawTexturedRect errored after glDrawArrays: %s", gluErrorString(error));
-			assert(("drawTexturedRect errored after glDrawArrays", false));
-		}
-	}
+	
 	gSP.changed |= CHANGED_GEOMETRYMODE | CHANGED_VIEWPORT;
 }
 
@@ -1632,20 +1554,11 @@ void OGLRender::_initExtensions()
 
 void OGLRender::_initStates()
 {
-	glDisable(GL_CULL_FACE);
-	glEnableVertexAttribArray(SC_POSITION);
-	glEnableVertexAttribArray(SC_COLOR);
-	/*
-	glEnableVertexAttribArray(SC_COLOR);
-	glEnableVertexAttribArray(SC_TEXCOORD0);
-	glEnableVertexAttribArray(SC_TEXCOORD1);
-	glEnableVertexAttribArray(SC_NUMLIGHTS);
-	glEnableVertexAttribArray(SC_MODIFY);
-	*/
+	glDisable( GL_CULL_FACE );
+	glEnable( GL_SCISSOR_TEST );
 	glEnable( GL_DEPTH_TEST );
 	glDepthFunc( GL_ALWAYS );
 	glDepthMask( GL_FALSE );
-	glEnable( GL_SCISSOR_TEST );
 
 	if (config.frameBufferEmulation.N64DepthCompare != 0) {
 		glDisable( GL_DEPTH_TEST );
@@ -1677,17 +1590,16 @@ void OGLRender::_initData()
 	glState.reset();
 	
 	glGenVertexArrays(1, vao);
-	glGenBuffers(2, vbo);
+	glBindVertexArray(vao[0]);
 	
-	glBindVertexArray(vao[1]);
+	glEnableVertexAttribArray(SC_POSITION);
+	
+	glGenBuffers(1, vbo);
+	glGenBuffers(1, ebo);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex)*4, NULL, GL_DYNAMIC_DRAW);
-	m_rect = (GLVertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(SPVertex)*VERTBUFF_SIZE, NULL, GL_DYNAMIC_DRAW);
-	triangles.vertices = (SPVertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo[0]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLubyte)*ELEMBUFF_SIZE, NULL, GL_DYNAMIC_DRAW);
 	
 	_initExtensions();
 	_initStates();
@@ -1714,17 +1626,12 @@ void OGLRender::_initData()
 
 void OGLRender::_destroyData()
 {
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-	m_rect = NULL;
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-	triangles.vertices = NULL;
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 	
-	glDeleteBuffers(2, vbo);
+	glDeleteBuffers(1, ebo);
+	glDeleteBuffers(1, vbo);
 	glDeleteVertexArrays(1, vao);
 	
 	m_renderState = rsNone;

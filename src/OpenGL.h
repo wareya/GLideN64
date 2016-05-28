@@ -127,8 +127,9 @@ public:
 		rsNone = 0,
 		rsLine = 1,
 		rsTriangle = 2,
-		rsRect = 3,
-		rsTexRect = 4,
+		rsTriangleDma = 3,
+		rsRect = 4,
+		rsTexRect = 5,
 	};
 	RENDER_STATE getRenderState() const {return m_renderState;}
 
@@ -165,15 +166,14 @@ private:
 	void _updateScreenCoordsViewport() const;
 	void _updateDepthUpdate() const;
 	void _updateStates(RENDER_STATE _renderState) const;
-	void _prepareDrawTriangle(u32 _numDmaVerts);
+	void _prepareDrawTriangle(int updatemode, u32 numUpdate);
 	bool _canDraw() const;
 
 	struct {
-//		SPVertex vertices[VERTBUFF_SIZE];
-		SPVertex * vertices; // VERTBUFF_SIZE
+		SPVertex vertices[VERTBUFF_SIZE];
 		std::vector<SPVertex> dmaVertices;
 		GLubyte elements[ELEMBUFF_SIZE];
-		int num;
+		GLubyte num;
 		u32 indexmap[INDEXMAP_SIZE];
 		u32 indexmapinv[VERTBUFF_SIZE];
 		u32 indexmap_prev;
@@ -196,7 +196,8 @@ private:
 	bool m_bFlatColors;
 	
 	GLuint vao[1];
-	GLuint vbo[2];
+	GLuint vbo[1];
+	GLuint ebo[1];
 };
 
 class OGLVideo

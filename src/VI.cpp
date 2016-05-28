@@ -90,14 +90,10 @@ void VI_UpdateSize()
 
 void VI_UpdateScreen()
 {
-	{
-		auto error = glGetError();
-		if(error != GL_NO_ERROR)
-		{
+	{ auto error = glGetError(); if(error != GL_NO_ERROR) {
 			LOG(LOG_ERROR, "VI_UpdateScreen() started out in error state: %s", gluErrorString(error));
 			assert(("VI_UpdateScreen() started out in error state", false));
-		}
-	}
+	} }
 	if (VI.lastOrigin == -1) // Workaround for Mupen64Plus issue with initialization
 		isGLError();
 
@@ -188,5 +184,13 @@ void VI_UpdateScreen()
 	if (VI.lastOrigin == -1) { // Workaround for Mupen64Plus issue with initialization
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+	}
+	{
+		auto error = glGetError();
+		if(error != GL_NO_ERROR)
+		{
+			LOG(LOG_ERROR, "VI_UpdateScreen() ended in error state: %s", gluErrorString(error));
+			assert(("VI_UpdateScreen() ended in error state", false));
+		}
 	}
 }
