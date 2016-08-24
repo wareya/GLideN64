@@ -61,7 +61,10 @@ void OGLVideoMupenPlus::_setAttributes()
 	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MAJOR_VERSION, 3);
 	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MINOR_VERSION, 2);
 #else
-	// Do nothing
+	// Forcibly ask for the required OpenGL version. GL drivers are not required to default to the highest possible version.
+	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_PROFILE_MASK, M64P_GL_CONTEXT_PROFILE_CORE);
+	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MAJOR_VERSION, 3);
+	CoreVideo_GL_SetAttribute(M64P_GL_CONTEXT_MINOR_VERSION, 3);
 #endif
 
 #ifndef GLES2

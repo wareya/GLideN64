@@ -267,7 +267,7 @@ private:
 class OGLVideo
 {
 public:
-	void start();
+	bool start();
 	void stop();
 	void restart();
 	void swapBuffers();
